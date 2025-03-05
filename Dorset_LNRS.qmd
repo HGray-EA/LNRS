@@ -1,0 +1,124 @@
+---
+title: "LNRS Rivers"
+format:
+  html:
+    theme: sandstone
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    callout-icon: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE,warning=FALSE, echo=FALSE, cache=TRUE)
+```
+
+```{css}
+.dataTables_wrapper {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.dataTables_wrapper table {
+font-size: 11px;
+}
+```
+## Dorset LNRS Viewer Data Analysis
+
+Here we review data within the Dorset LNRS Data Explorer, this exercise is pre-public consultation. 
+
+The Local Habitat Map (main mapping output of the LNRS) is accessible in the !["https://gi.dorsetcouncil.gov.uk/dorsetexplorer/nature-recovery#map=14.60/50.67895/-2.13060/0&basemap=9/100/100"]Dorset LNRS Data Viewer
+
+
+```{r}
+library(sf)
+library(leaflet)
+library(magrittr)
+library(tidyverse)
+
+PA <- read_sf("/dbfs/FileStore/WSX_HGray/Potential_Activities.gpkg") %>% 
+  st_transform(4326)
+
+PA_bb <- st_bbox(PA)
+
+DRN <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/DRN/DRN_Merged_MCAT.shp")
+
+DRN <- DRN %>% st_crop(PA_bb)
+
+
+Layers_JS <- "function(el, x) {
+                var map = this;
+          
+                map.on('overlayadd overlayremove', function(e) {
+                  // Create an array to hold layers by zIndex
+                  var layers = [];
+                  
+                  // Collect all layers with zIndex
+                  map.eachLayer(function(layer) {
+                    if (layer.options && layer.options.zIndex !== undefined) {
+                      layers.push(layer);
+                    }
+                  });
+          
+                  // Sort layers by zIndex in ascending order
+                  layers.sort(function(a, b) {
+                    return a.options.zIndex - b.options.zIndex;
+                  });
+          
+                  // Re-add layers to the map in sorted order
+                  layers.forEach(function(layer) {
+                    if (map.hasLayer(layer)) {
+                      layer.bringToFront();
+                    }
+                });
+              });
+            }"
+
+
+PAL <- colorFactor(palette = c("#FBE183", "#F5CC2F", "#F8B108" ,"#F78C09", "#DC4D35" ,"#B23A3F" ,"#B14054" 
+                               ,"#DE5A7C" ,"#E57386" ,"#E78E97" ,"#AD7CA1"
+                               ,"#874884", "#1f6e9c", "#2A6495" , "#2b9b81" ,"#92c051","#92C051" ,"#47A573"),
+                   levels = PA$primary_activities)
+
+
+# Filter just for heathland sites
+PA <- PA %>% group_by(primary_activities) %>% 
+  mutate(occurance_Prim_Act = n(),
+         Total_area = sum(as.numeric(area))) %>% 
+  ungroup() 
+
+```
+
+
+### Primary Activities 
+
+The below plot shows Primary Activites within Dorset to provide a flavour of primary activities. Below is a plot of secondary activities. Note there are no river or "riparian" activies as primary activities.
+
+```{r}
+library(plotly)
+library(MetBrewer)
+
+a <- ggplot(PA, aes(y = reorder(primary_activities, +table(primary_activities)[primary_activities]), fill = primary_activities)) +
+  geom_bar() +
+  scale_fill_manual(values = met.brewer("Tsimshian", 19)) +  # Use scale_fill_manual instead of scale_color_manual
+  labs(y = "Primary Activities (Sorted)", x = "Count") +
+  theme_minimal()+
+  theme(legend.position = "none")
+
+ggplotly(a)
+
+```
+```{r}
+
+
+b <- ggplot(PA, aes(y = reorder(habitat_mix_activities , +table(habitat_mix_activities)[habitat_mix_activities]), fill = habitat_mix_activities)) +
+  geom_bar() +
+  scale_fill_manual(values = met.brewer("Tsimshian", 31)) +  # Use scale_fill_manual instead of scale_color_manual
+  labs(y = "Habitat Mix Activities", x = "Count") +
+  theme_minimal()+
+  theme(legend.position = "none")
+
+ggplotly(b)
+
+```
