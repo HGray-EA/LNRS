@@ -28,7 +28,7 @@ font-size: 11px;
 
 Here we review data within the Dorset LNRS Data Explorer, this exercise is pre-public consultation. 
 
-The Local Habitat Map (main mapping output of the LNRS) is accessible in the !["https://gi.dorsetcouncil.gov.uk/dorsetexplorer/nature-recovery#map=14.60/50.67895/-2.13060/0&basemap=9/100/100"]Dorset LNRS Data Viewer
+The Local Habitat Map (main mapping output of the LNRS) is accessible in the [Dorset LNRS Explorer](https://gi.dorsetcouncil.gov.uk/dorsetexplorer/nature-recovery#map=14.60/50.67895/-2.13060/0&basemap=9/100/100)
 
 
 ```{r}
