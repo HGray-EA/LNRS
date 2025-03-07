@@ -37,14 +37,21 @@ library(leaflet)
 library(magrittr)
 library(tidyverse)
 
+# Get outline of Dorset Local Authority/LNRS boarder
+LA <- read_sf("/dbfs/mnt/base/unrestricted/source_ons_open_geography_portal/dataset_local_authority_districts_bdy_uk_bfe/format_SHP_local_authority_districts_bdy_uk_bfe/LATEST_local_authority_districts_bdy_uk_bfe/local_auth_dist_bdy_uk_bfe.shp") %>% 
+  filter(LAD24NM == "Dorset") %>% 
+    st_transform(4326)
+
 PA <- read_sf("/dbfs/FileStore/WSX_HGray/Potential_Activities.gpkg") %>% 
   st_transform(4326)
 
-PA_bb <- st_bbox(PA)
+# Load Detailed river network & crop to Dorset
+DRN <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/DRN/DRN_Merged_MCAT.shp") %>% 
+              st_crop(LA)
 
-DRN <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/DRN/DRN_Merged_MCAT.shp")
-
-DRN <- DRN %>% st_crop(PA_bb)
+Chalk <- read_sf("/dbfs/FileStore/WSX_HGray/Chalk_streams_Dorset.shp") %>% 
+            st_transform(4326) %>% 
+                st_crop(LA)
 
 
 Layers_JS <- "function(el, x) {
@@ -86,8 +93,12 @@ PAL <- colorFactor(palette = c("#FBE183", "#F5CC2F", "#F8B108" ,"#F78C09", "#DC4
 PA <- PA %>% group_by(primary_activities) %>% 
   mutate(occurance_Prim_Act = n(),
          Total_area = sum(as.numeric(area))) %>% 
-  ungroup() 
-
+  ungroup() %>% 
+  group_by(river_activities) %>% 
+  mutate(occurance_riv_act= n(),
+         Total_riv_area = sum(as.numeric(area))) %>% 
+  ungroup()
+  
 ```
 
 
@@ -109,16 +120,126 @@ a <- ggplot(PA, aes(y = reorder(primary_activities, +table(primary_activities)[p
 ggplotly(a)
 
 ```
+
 ```{r}
 
 
-b <- ggplot(PA, aes(y = reorder(habitat_mix_activities , +table(habitat_mix_activities)[habitat_mix_activities]), fill = habitat_mix_activities)) +
+b <- ggplot(PA, aes(y = reorder(river_activities , +table(river_activities)[river_activities]), fill = river_activities)) +
   geom_bar() +
-  scale_fill_manual(values = met.brewer("Tsimshian", 31)) +  # Use scale_fill_manual instead of scale_color_manual
-  labs(y = "Habitat Mix Activities", x = "Count") +
+  scale_fill_manual(values = met.brewer("Pissaro", 31)) +  # Use scale_fill_manual instead of 
+  labs(y = "River Activities", x = "Count") +
   theme_minimal()+
   theme(legend.position = "none")
 
 ggplotly(b)
 
 ```
+
+
+
+```{r Leaflet Map of Wetlands}
+#| eval: false
+
+PA_W <- PA %>% 
+  filter(primary_activities %in% c("create or enhance wetland habitat","enhance wetland habitat", "create or enhance heathland or wetland habitat" ))
+
+
+# Plot which shows rivers and LNRS area wetland creation/ enhancement areas
+
+leaflet() %>% 
+  
+  addPolygons(data=PA_W,
+              fillColor = "#2b9b81",
+              fillOpacity = 0.5,
+              color = "black",
+              opacity = 0.8,
+              popup = PA_W$primary_activities,
+              highlightOptions = highlightOptions(color = "white", weight = 4,
+                                                  bringToFront = FALSE),
+              options = pathOptions(zIndex = 500),
+              group="Activities") %>% 
+  
+  addPolylines(data=DRN, col="#2832C2", weight=1, 
+               opacity = 0.5,
+               options = pathOptions(zIndex = 400),
+               group="Detailed River Network") %>%
+  
+  #addLegend("bottomright", 
+   #         pal = PAL, 
+    #        values = PA$primary_activities, 
+     #       title = "Primary Activities",
+      #      group = "Activities") %>% 
+  addScaleBar()  %>% 
+  
+  addLayersControl( overlayGroups = c("Activities",
+                                      "Detailed River Network"),
+                    position="topright",
+                    options=layersControlOptions(collapsed=FALSE)) %>% 
+  htmlwidgets::onRender(Layers_JS) 
+
+```
+
+```{r Leaflet map of Rivers}
+
+PAR <- PA %>% 
+  filter(!(river_activities %in% c("","NA")))
+
+# Noticed a lot of river activites were these ones so screened this main one out.
+PAR_R <- PAR %>% filter(!(river_activities == ("Potential to reduce nutrient run-off through habitat creation or enhancement")))
+
+Pal_c <- colorFactor(palette = c("seagreen2", "purple"),
+                     levels = c("low certainty", "high certainty")
+                    )
+
+# Map
+leaflet() %>% 
+  
+  addPolygons(data=PAR_R,
+              fillColor = "#2b9a31",
+              fillOpacity = 0.5,
+              color = "black",
+              weight = 0.001,
+              opacity = 0.8,
+              popup = paste0("Primary Activity ", PAR_R$primary_activities,
+                             "<br>River Activities ", PAR_R$river_activities),
+              highlightOptions = highlightOptions(color = "white", weight = 4,
+                                                  bringToFront = FALSE),
+              options = pathOptions(zIndex = 500),
+              group="Activities") %>% 
+  addPolylines(data=Chalk, 
+               color= "purple",
+               weight = 1,
+               options= pathOptions(zIndex = 800),
+               group = "Dorset Chalk Streams") %>% 
+  addPolylines(data=DRN, 
+               color= "blue",
+               weight = 1,
+               options= pathOptions(zIndex = 600),
+               group = "Detailed River Network") %>% 
+  addPolygons(data=LA, 
+              fillColor= "white",
+              fillOpacity = 0.000001,
+              weight= 1,
+              color="black") %>% 
+  
+ # addPolylines(data=DRN, col="#2832C2", weight=1, 
+  #             opacity = 0.5,
+   #            options = pathOptions(zIndex = 400),
+    #           group="Detailed River Network") %>%
+  
+  #addLegend("bottomright", 
+   #         pal = PAL, 
+    #        values = PA$primary_activities, 
+     #       title = "Primary Activities",
+      #      group = "Activities") %>% 
+  addScaleBar()  %>% 
+  
+  addLayersControl( overlayGroups = c("Activities",
+                                      "Detailed River Network"),
+                    position="topright",
+                    options=layersControlOptions(collapsed=FALSE)) %>% 
+  hideGroup(group = "Dorset Chalk Streams") %>% 
+  htmlwidgets::onRender(Layers_JS) 
+
+```
+
