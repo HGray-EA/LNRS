@@ -117,7 +117,6 @@ a <- ggplot(PA, aes(y = reorder(primary_activities, +table(primary_activities)[p
   theme_minimal()+
   theme(legend.position = "none")
 
-ggplotly(a)
 
 ```
 
@@ -187,12 +186,15 @@ PAR <- PA %>%
 # Noticed a lot of river activites were these ones so screened this main one out.
 PAR_R <- PAR %>% filter(!(river_activities == ("Potential to reduce nutrient run-off through habitat creation or enhancement")))
 
+PAR_RR <- PAR %>% filter(!(river_activities == "Increase or enhance riparian planting"))
+
 Pal_c <- colorFactor(palette = c("seagreen2", "purple"),
                      levels = c("low certainty", "high certainty")
                     )
 
 # Map
 leaflet() %>% 
+  addProviderTiles(providers$Esri) %>% 
   
   addPolygons(data=PAR_R,
               fillColor = "#2b9a31",
@@ -235,7 +237,8 @@ leaflet() %>%
   addScaleBar()  %>% 
   
   addLayersControl( overlayGroups = c("Activities",
-                                      "Detailed River Network"),
+                                      "Detailed River Network",
+                                      "Dorset Chalk Streams"),
                     position="topright",
                     options=layersControlOptions(collapsed=FALSE)) %>% 
   hideGroup(group = "Dorset Chalk Streams") %>% 
