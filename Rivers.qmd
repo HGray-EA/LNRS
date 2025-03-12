@@ -48,94 +48,11 @@ PAR <- PA %>%
   filter(!(river_activities %in% c("","NA")))
 
 
-Layers_JS <- "function(el, x) {
-                var map = this;
-          
-                map.on('overlayadd overlayremove', function(e) {
-                  // Create an array to hold layers by zIndex
-                  var layers = [];
-                  
-                  // Collect all layers with zIndex
-                  map.eachLayer(function(layer) {
-                    if (layer.options && layer.options.zIndex !== undefined) {
-                      layers.push(layer);
-                    }
-                  });
-          
-                  // Sort layers by zIndex in ascending order
-                  layers.sort(function(a, b) {
-                    return a.options.zIndex - b.options.zIndex;
-                  });
-          
-                  // Re-add layers to the map in sorted order
-                  layers.forEach(function(layer) {
-                    if (map.hasLayer(layer)) {
-                      layer.bringToFront();
-                    }
-                });
-              });
-            }"
 
-# Noticed a lot of river activites were these ones so screened this main one out.
-PAR_R <- PAR %>% filter(!(river_activities == ("Potential to reduce nutrient run-off through habitat creation or enhancement")))
-
-PAR_RR <- PAR %>% filter(!(river_activities == "Increase or enhance riparian planting"))
-
-Pal_c <- colorFactor(palette = c("seagreen2", "purple"),
-                     levels = c("low certainty", "high certainty")
-                    )
-
-# Map
-leaflet() %>% 
-  addProviderTiles(providers$Esri) %>% 
-  
-  addPolygons(data=PAR,
-              fillColor = "orange",
-              fillOpacity = 0.9,
-              color = "black",
-              weight = 0.001,
-              opacity = 0.8,
-              popup = paste0("Primary Activity ", PAR_R$primary_activities,
-                             "<br>River Activities ", PAR_R$river_activities),
-              highlightOptions = highlightOptions(color = "white", weight = 4,
-                                                  bringToFront = FALSE),
-              options = pathOptions(zIndex = 500),
-              group="Activities") %>% 
-  addPolylines(data=Chalk, 
-               color= "purple",
-               weight = 1,
-               options= pathOptions(zIndex = 800),
-               group = "Dorset Chalk Streams") %>% 
-  addPolylines(data=DRN, 
-               color= "blue",
-               weight = 1,
-               options= pathOptions(zIndex = 600),
-               group = "Detailed River Network") %>% 
-  addPolygons(data=LA, 
-              fillColor= "white",
-              fillOpacity = 0.000001,
-              weight= 1,
-              color="black") %>% 
-  
- # addPolylines(data=DRN, col="#2832C2", weight=1, 
-  #             opacity = 0.5,
-   #            options = pathOptions(zIndex = 400),
-    #           group="Detailed River Network") %>%
-  
-  #addLegend("bottomright", 
-   #         pal = PAL, 
-    #        values = PA$primary_activities, 
-     #       title = "Primary Activities",
-      #      group = "Activities") %>% 
-  addScaleBar()  %>% 
-  
-  addLayersControl( overlayGroups = c("Activities",
-                                      "Detailed River Network",
-                                      "Dorset Chalk Streams"),
-                    position="topright",
-                    options=layersControlOptions(collapsed=FALSE)) %>% 
-  hideGroup(group = c("Dorset Chalk Streams", "Detailed River Network")) %>% 
-  htmlwidgets::onRender(Layers_JS) 
+  ggplot() +
+   geom_sf(data = DRN, fill = "red", col = "red")+
+  geom_sf(data = PAR, fill = "orange", col = "green")+
+  theme_void()
 
 ```
 

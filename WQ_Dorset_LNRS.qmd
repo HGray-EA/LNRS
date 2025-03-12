@@ -52,6 +52,11 @@ catch <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.u
 CAT <- catch
 
 
+
+# Load Detailed river network & crop to Dorset
+DRN <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/DRN/DRN_Merged_MCAT.shp")
+DRN <- DRN[LA,]
+
 # Create a wb wide score and transform
 ALERT <- gdb %>%
           group_by(WATERBODY_NAME) %>%
@@ -72,104 +77,25 @@ ALERT <- gdb %>%
                              st_as_sf() %>% 
                               st_transform(4326)
    
-  
+  PA <- read_sf("/dbfs/FileStore/WSX_HGray/Potential_Activities.gpkg") %>% 
+  st_transform(4326)
+
+PAR <- PA %>% 
+  filter(!(river_activities %in% c("","NA")))
     
-  PAR_R <- PAR %>% filter(!(river_activities == ("Potential to reduce nutrient run-off through habitat creation or enhancement")))
+  #PAR_R <- PAR %>% filter((river_activities == ("Potential to reduce nutrient run-off through habitat creation or enhancement")))
   
   
   ggplot() +
   geom_sf(data = ALERT_WB, aes(fill = Catch_Overall_Risk)) +
   scale_fill_gradientn(colors = MetBrewer::met.brewer("Tam")) +
    geom_sf(data = DRN, fill = "red", col = "red")+
-  geom_sf(data = PAR_R, fill = "orange", col = "green")+
+  geom_sf(data = PAR, fill = "orange", col = "green")+
   theme_void()
 
 ```
 :::
 
-```{r}
-
-```
 
 
-
-```{r }
-#| eval: false
-
-  
-            
-                             
-# Create map with ALERT data
-  SEQ <- c(2,2.5,3,3.5,4,4.5,5)
-  pal_ALERT<- colorBin(palette = "YlOrRd", bins = SEQ, domain = ALERT_WB$Catch_Overall_Risk)
-  pal_ALERT_N<- colorNumeric(palette = "YlOrRd",  domain = ALERT_CAT$Catch_Overall_Risk)
-
-  
-library(ggplot2)
-library(MetBrewer)  # Only needed if using MetBrewer palettes
-
-
-
-
-  
-        leaflet() %>% 
-          addProviderTiles(providers$Esri,
-                           group = "Esri Basemap") %>%
-          addProviderTiles(providers$Esri.WorldImagery,
-                           group = "Satellite Basemap") %>% 
-          addPolygons(data=LA,
-                      col="black",
-                      fillColor = "white",
-                      fillOpacity = 0.000001) %>% 
-          addPolygons(data = ALERT_WB,
-                      fillColor = ~pal_ALERT(Catch_Overall_Risk),
-                      fillOpacity = 0.5,
-                      color = 1,
-                      popup = paste0("<b>Mean Catchment<br>Diffuse Pollution Risk: </b>", ALERT_WB$Catch_Overall_Risk,
-                                     "<br><b>Waterbody: </b>", ALERT_WB$WB_NAME),
-                      highlightOptions = highlightOptions(color = "white", weight = 4,
-                      bringToFront = FALSE),
-                      group = "Catchment Risk") %>% 
-           addPolygons(data=PAR,
-              fillColor = "orange",
-              fillOpacity = 0.9,
-              color = "black",
-              weight = 0.001,
-              opacity = 0.8,
-              popup = paste0("Primary Activity ", PAR_R$primary_activities,
-                             "<br>River Activities ", PAR_R$river_activities),
-              highlightOptions = highlightOptions(color = "blue", weight = 4,
-                                                  bringToFront = FALSE),
-              options = pathOptions(zIndex = 500),
-              group="Activities") %>% 
-          
-         # addPolylines(data = ALERT_CAT,
-        #       color = ~pal_ALERT(CatchmentRiskScore),
-         #      opacity = 1,
-          #     weight = 1,
-           #    highlightOptions = highlightOptions(
-            #        weight = 7,
-             #       opacity = 1),
-          #     popup = paste0("Diffuse Pollution Risk: ", ALERT_CAT$CatchmentRiskDesc,
-           #                   "<br> Waterbody: ", ALERT_CAT$WB_NAME),
-            #   group = "Diffuse Pollution Pathways") %>% 
-          addLegend("bottomleft",
-                    pal = pal_ALERT_N,
-                    values = ALERT_CAT$Catch_Overall_Risk,
-                    title = "Diffuse Pollution Risk",
-                    group = "Diffuse Pollution Pathways") %>% 
-          addLegend("bottomright", 
-                    pal = pal_ALERT, 
-                    values = SEQ,
-                    title = "Diffuse Pollution Risk",
-                    group = "Catchment Risk") %>%   # Adjusted group to match the layer group
-          addScaleBar() %>% 
-          addLayersControl(baseGroups = c("Esri Basemap", "Satellite Basemap"),
-            overlayGroups = c("Catchment Risk", "Diffuse Pollution Pathways"),
-                           position = "topright",
-                           options = layersControlOptions(collapsed = FALSE)) %>% 
-          hideGroup(c("Diffuse Pollution Pathways","Satellite Basemap"))
-        
-
-```
 
