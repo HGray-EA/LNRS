@@ -12,46 +12,40 @@ format:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message=FALSE,warning=FALSE, echo=FALSE, cache=TRUE)
-```
 
-```{css}
-.dataTables_wrapper {
-  max-height: 350px;
-  overflow-y: auto;
-}
-
-.dataTables_wrapper table {
-font-size: 11px;
-}
-```
-## Dorset LNRS Viewer Data Analysis
-
-Here we review data within the Dorset LNRS Data Explorer, this exercise is pre-public consultation. 
-
-The Local Habitat Map (main mapping output of the LNRS) is accessible in the [Dorset LNRS Explorer](https://gi.dorsetcouncil.gov.uk/dorsetexplorer/nature-recovery#map=14.60/50.67895/-2.13060/0&basemap=9/100/100)
-
-
-```{r}
 library(sf)
 library(leaflet)
 library(magrittr)
 library(tidyverse)
 
-# Get outline of Dorset Local Authority/LNRS boarder
 LA <- read_sf("/dbfs/mnt/base/unrestricted/source_ons_open_geography_portal/dataset_local_authority_districts_bdy_uk_bfe/format_SHP_local_authority_districts_bdy_uk_bfe/LATEST_local_authority_districts_bdy_uk_bfe/local_auth_dist_bdy_uk_bfe.shp") %>% 
   filter(LAD24NM == "Dorset") %>% 
     st_transform(4326)
+# Load Detailed river network & crop to Dorset
+DRN <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/DRN/DRN_Merged_MCAT.shp") 
 
+DRN <- DRN[LA,]
+
+Chalk <- read_sf("/dbfs/FileStore/WSX_HGray/Chalk_streams_Dorset.shp") %>% 
+            st_transform(4326)
+
+```
+
+#### Potential River Measures Dorset LNRS
+
+The below map includes all river measures, these include the below activities, sites can have multiple proposed activities as a mixture of the below: 
+
+* Potential to reduce nutrient run-off through habitat creation or enhancement.
+* Increase or enhance riparian planting
+* Enhance priority river habitat
+* Potential to improve river water quality and ecological condition
+
+```{r}
 PA <- read_sf("/dbfs/FileStore/WSX_HGray/Potential_Activities.gpkg") %>% 
   st_transform(4326)
 
-# Load Detailed river network & crop to Dorset
-DRN <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/DRN/DRN_Merged_MCAT.shp") %>% 
-              st_crop(LA)
-
-Chalk <- read_sf("/dbfs/FileStore/WSX_HGray/Chalk_streams_Dorset.shp") %>% 
-            st_transform(4326) %>% 
-                st_crop(LA)
+PAR <- PA %>% 
+  filter(!(river_activities %in% c("","NA")))
 
 
 Layers_JS <- "function(el, x) {
@@ -82,91 +76,6 @@ Layers_JS <- "function(el, x) {
               });
             }"
 
-
-PAL <- colorFactor(palette = c("#FBE183", "#F5CC2F", "#F8B108" ,"#F78C09", "#DC4D35" ,"#B23A3F" ,"#B14054" 
-                               ,"#DE5A7C" ,"#E57386" ,"#E78E97" ,"#AD7CA1"
-                               ,"#874884", "#1f6e9c", "#2A6495" , "#2b9b81" ,"#92c051","#92C051" ,"#47A573"),
-                   levels = PA$primary_activities)
-
-
-# Filter just for heathland sites
-PA <- PA %>% group_by(primary_activities) %>% 
-  mutate(occurance_Prim_Act = n(),
-         Total_area = sum(as.numeric(area))) %>% 
-  ungroup() %>% 
-  group_by(river_activities) %>% 
-  mutate(occurance_riv_act= n(),
-         Total_riv_area = sum(as.numeric(area))) %>% 
-  ungroup()
-  
-```
-
-
-### Primary Activities 
-
-The below plot shows Primary Activites within Dorset to provide a flavour of primary activities. Below is a plot of secondary activities. Note there are no river or "riparian" activies as primary activities.
-
-```{r}
-library(plotly)
-library(MetBrewer)
-
-a <- ggplot(PA, aes(y = reorder(primary_activities, +table(primary_activities)[primary_activities]), fill = primary_activities)) +
-  geom_bar() +
-  scale_fill_manual(values = met.brewer("Tsimshian", 19)) +  # Use scale_fill_manual instead of scale_color_manual
-  labs(y = "Primary Activities (Sorted)", x = "Count") +
-  theme_minimal()+
-  theme(legend.position = "none")
-
-a
-```
-
-```{r Leaflet Map of Wetlands}
-#| eval: false
-
-PA_W <- PA %>% 
-  filter(primary_activities %in% c("create or enhance wetland habitat","enhance wetland habitat", "create or enhance heathland or wetland habitat" ))
-
-
-# Plot which shows rivers and LNRS area wetland creation/ enhancement areas
-
-leaflet() %>% 
-  
-  addPolygons(data=PA_W,
-              fillColor = "#2b9b81",
-              fillOpacity = 0.5,
-              color = "black",
-              opacity = 0.8,
-              popup = PA_W$primary_activities,
-              highlightOptions = highlightOptions(color = "white", weight = 4,
-                                                  bringToFront = FALSE),
-              options = pathOptions(zIndex = 500),
-              group="Activities") %>% 
-  
-  addPolylines(data=DRN, col="#2832C2", weight=1, 
-               opacity = 0.5,
-               options = pathOptions(zIndex = 400),
-               group="Detailed River Network") %>%
-  
-  #addLegend("bottomright", 
-   #         pal = PAL, 
-    #        values = PA$primary_activities, 
-     #       title = "Primary Activities",
-      #      group = "Activities") %>% 
-  addScaleBar()  %>% 
-  
-  addLayersControl( overlayGroups = c("Activities",
-                                      "Detailed River Network"),
-                    position="topright",
-                    options=layersControlOptions(collapsed=FALSE)) %>% 
-  htmlwidgets::onRender(Layers_JS) 
-
-```
-
-```{r Leaflet map of Rivers}
-
-PAR <- PA %>% 
-  filter(!(river_activities %in% c("","NA")))
-
 # Noticed a lot of river activites were these ones so screened this main one out.
 PAR_R <- PAR %>% filter(!(river_activities == ("Potential to reduce nutrient run-off through habitat creation or enhancement")))
 
@@ -180,9 +89,9 @@ Pal_c <- colorFactor(palette = c("seagreen2", "purple"),
 leaflet() %>% 
   addProviderTiles(providers$Esri) %>% 
   
-  addPolygons(data=PAR_R,
-              fillColor = "#2b9a31",
-              fillOpacity = 0.5,
+  addPolygons(data=PAR,
+              fillColor = "orange",
+              fillOpacity = 0.9,
               color = "black",
               weight = 0.001,
               opacity = 0.8,
@@ -225,7 +134,7 @@ leaflet() %>%
                                       "Dorset Chalk Streams"),
                     position="topright",
                     options=layersControlOptions(collapsed=FALSE)) %>% 
-  hideGroup(group = "Dorset Chalk Streams") %>% 
+  hideGroup(group = c("Dorset Chalk Streams", "Detailed River Network")) %>% 
   htmlwidgets::onRender(Layers_JS) 
 
 ```

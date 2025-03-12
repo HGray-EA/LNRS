@@ -1,0 +1,23 @@
+project:
+  type: website
+
+website:
+  title: "LNRS QA"
+  navbar:
+   background: "#008531"
+   left:
+    - href: Dorset_LNRS.qmd
+      text: Home
+    - href: WQ_Dorset_LNRS.qmd
+      text: Wetlands
+    - href: Rivers.qmd
+      text: Rivers
+   page-footer:
+      right: "This page is built with [Quarto](https://quarto.org/)."
+      left: "&copy; Copyright 2025, Environment Agency"
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true

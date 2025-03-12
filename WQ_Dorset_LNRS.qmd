@@ -1,0 +1,175 @@
+---
+title: "Water Quality Enhancements"
+format:
+  html:
+    theme: sandstone
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    callout-icon: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE,warning=FALSE, echo=FALSE, cache=TRUE)
+
+library(sf)
+library(tidyverse)
+library(magrittr)
+library(leaflet)
+```
+
+
+### Diffuse Source Pollution
+
+The below map shows data from the Agricultural Land Environmental Risk Tool ([ALERT](https://defra.sharepoint.com/:u:/r/teams/Team646/SitePages/A.L.E.R.T-Home-Page.aspx?csf=1&web=1&e=hPErKt)), it models diffuse pollution pathways and simulates their diffuse pollution risk. Created by the Geomatics team, EA, it is commonly used by agricultural teams in farm visits, the diffuse pollution risk scores are modelled on:
+
+-   Land-use (2021)
+
+-   Hill slope
+
+-   Erosion and runoff risk of soil
+
+-   Mean precipitation
+
+The below map provides a mean score of diffuse pollution per waterbody using the data from ALERT, for further granularity, you can view diffuse pollution pathways at a reach scale. This data is indicative of erosion risk and doesn't reflect actual risk, which can only be identified through monitoring.
+
+:::{.column-page}
+```{r Map from ALERT tool}
+#| fig-cap: "Diffuse pollution pathways data taken from the Agricultural Land Environmental Risk Tool"
+
+# The input file geodatabase
+  gdb <- st_read("/dbfs/FileStore/WSX_HGray/WessexRiskAttributedOLF.gdb", quiet = TRUE)
+
+  LA <- read_sf("/dbfs/mnt/base/unrestricted/source_ons_open_geography_portal/dataset_local_authority_districts_bdy_uk_bfe/format_SHP_local_authority_districts_bdy_uk_bfe/LATEST_local_authority_districts_bdy_uk_bfe/local_auth_dist_bdy_uk_bfe.shp") %>% 
+  filter(LAD24NM == "Dorset") %>% 
+    st_transform(4326)
+
+  # Enter catchment here
+Catchments <- c("Avon Bristol Urban")
+
+catch <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/Interim_WFD_2022.shp")# Catchment shapefiles
+CAT <- catch
+
+
+# Create a wb wide score and transform
+ALERT <- gdb %>%
+          group_by(WATERBODY_NAME) %>%
+          mutate(Catch_Overall_Risk = round(mean(CatchmentRiskScore),1)) %>% 
+          ungroup() %>% 
+          rename(WB_NAME = WATERBODY_NAME) %>% 
+          st_transform(4326)
+
+# Crop to catchment & transform to WGS84
+  
+  ALERT_CAT <- ALERT[LA,]
+ 
+# Assign wb risk score to catchment wbs.
+  ALERT_WB <- ALERT_CAT %>% select(2,23) %>% 
+                             st_drop_geometry() %>%  
+                             inner_join(CAT, by = "WB_NAME") %>% 
+                             distinct() %>%     # We had a polygon for every linestring so make unique for each wb
+                             st_as_sf() %>% 
+                              st_transform(4326)
+   
+  
+    
+  PAR_R <- PAR %>% filter(!(river_activities == ("Potential to reduce nutrient run-off through habitat creation or enhancement")))
+  
+  
+  ggplot() +
+  geom_sf(data = ALERT_WB, aes(fill = Catch_Overall_Risk)) +
+  scale_fill_gradientn(colors = MetBrewer::met.brewer("Tam")) +
+   geom_sf(data = DRN, fill = "red", col = "red")+
+  geom_sf(data = PAR_R, fill = "orange", col = "green")+
+  theme_void()
+
+```
+:::
+
+```{r}
+
+```
+
+
+
+```{r }
+#| eval: false
+
+  
+            
+                             
+# Create map with ALERT data
+  SEQ <- c(2,2.5,3,3.5,4,4.5,5)
+  pal_ALERT<- colorBin(palette = "YlOrRd", bins = SEQ, domain = ALERT_WB$Catch_Overall_Risk)
+  pal_ALERT_N<- colorNumeric(palette = "YlOrRd",  domain = ALERT_CAT$Catch_Overall_Risk)
+
+  
+library(ggplot2)
+library(MetBrewer)  # Only needed if using MetBrewer palettes
+
+
+
+
+  
+        leaflet() %>% 
+          addProviderTiles(providers$Esri,
+                           group = "Esri Basemap") %>%
+          addProviderTiles(providers$Esri.WorldImagery,
+                           group = "Satellite Basemap") %>% 
+          addPolygons(data=LA,
+                      col="black",
+                      fillColor = "white",
+                      fillOpacity = 0.000001) %>% 
+          addPolygons(data = ALERT_WB,
+                      fillColor = ~pal_ALERT(Catch_Overall_Risk),
+                      fillOpacity = 0.5,
+                      color = 1,
+                      popup = paste0("<b>Mean Catchment<br>Diffuse Pollution Risk: </b>", ALERT_WB$Catch_Overall_Risk,
+                                     "<br><b>Waterbody: </b>", ALERT_WB$WB_NAME),
+                      highlightOptions = highlightOptions(color = "white", weight = 4,
+                      bringToFront = FALSE),
+                      group = "Catchment Risk") %>% 
+           addPolygons(data=PAR,
+              fillColor = "orange",
+              fillOpacity = 0.9,
+              color = "black",
+              weight = 0.001,
+              opacity = 0.8,
+              popup = paste0("Primary Activity ", PAR_R$primary_activities,
+                             "<br>River Activities ", PAR_R$river_activities),
+              highlightOptions = highlightOptions(color = "blue", weight = 4,
+                                                  bringToFront = FALSE),
+              options = pathOptions(zIndex = 500),
+              group="Activities") %>% 
+          
+         # addPolylines(data = ALERT_CAT,
+        #       color = ~pal_ALERT(CatchmentRiskScore),
+         #      opacity = 1,
+          #     weight = 1,
+           #    highlightOptions = highlightOptions(
+            #        weight = 7,
+             #       opacity = 1),
+          #     popup = paste0("Diffuse Pollution Risk: ", ALERT_CAT$CatchmentRiskDesc,
+           #                   "<br> Waterbody: ", ALERT_CAT$WB_NAME),
+            #   group = "Diffuse Pollution Pathways") %>% 
+          addLegend("bottomleft",
+                    pal = pal_ALERT_N,
+                    values = ALERT_CAT$Catch_Overall_Risk,
+                    title = "Diffuse Pollution Risk",
+                    group = "Diffuse Pollution Pathways") %>% 
+          addLegend("bottomright", 
+                    pal = pal_ALERT, 
+                    values = SEQ,
+                    title = "Diffuse Pollution Risk",
+                    group = "Catchment Risk") %>%   # Adjusted group to match the layer group
+          addScaleBar() %>% 
+          addLayersControl(baseGroups = c("Esri Basemap", "Satellite Basemap"),
+            overlayGroups = c("Catchment Risk", "Diffuse Pollution Pathways"),
+                           position = "topright",
+                           options = layersControlOptions(collapsed = FALSE)) %>% 
+          hideGroup(c("Diffuse Pollution Pathways","Satellite Basemap"))
+        
+
+```
+
