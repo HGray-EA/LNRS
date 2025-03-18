@@ -33,26 +33,24 @@ library(leaflet)
 # Create a waterbody wide score and transform
 ALERT <- gdb %>%
           group_by(WATERBODY_NAME) %>%
-          mutate(Catch_Overall_Risk = round(mean(CatchmentRiskScore),1)) %>% 
+          mutate(
+            Catch_Overall_Risk = round(mean(CatchmentRiskScore),1)) %>% 
           ungroup() %>% 
           rename(WB_NAME = WATERBODY_NAME) %>% 
-          st_transform(4326)
+          st_transform(4326) %>% 
+          st_intersection(LA)
+          
+ALERT <- ALERT[LA,]
 
-# Crop ALERT to Dorset LNRS
-  
-  ALERT_CAT <- ALERT[LA,]
- 
-# Assign wb risk score to catchment wbs.
-  ALERT_WB <- ALERT_CAT %>% select(2,23) %>% 
+# Crop ALERT to Dorset LNRS Assign wb risk score to catchment wbs.
+  ALERT_WB <- ALERT %>% 
+                             select(2,22) %>% 
                              st_drop_geometry() %>%  
                              inner_join(CAT, by = "WB_NAME") %>% 
                              distinct() %>%     # We had a polygon for every linestring so make unique for each wb
                              st_as_sf() %>% 
                              st_transform(4326)
   
-# Crop to Local Authority  
-  ALERT_WB <- ALERT_WB %>% 
-
 # Transforms
   # Filter out polygons without river activities 
 PAR <- PA %>% 
@@ -68,15 +66,26 @@ PAR <- PA %>%
   labs(title = "All River Activities")+
   theme_void()
   
+#Filter activites which include either statement or also either statement + a combination of the two.
     filtered_water_quality <- PAR$river_activities[
-        grepl("Potential to reduce nutrient run-off through habitat creation or enhancement", PAR$river_activities, ignore.case = TRUE) & 
-          grepl("Potential to improve river water quality and ecological condition", PAR$river_activities, ignore.case = TRUE)
+        grepl("Potential to reduce nutrient run-off through habitat creation or enhancement", PAR$river_activities, ignore.case = TRUE) | 
+          grepl("Potential to improve river water quality and ecological condition", PAR$river_activities, ignore.case = TRUE) |
+          
+          grepl("Potential to reduce nutrient run-off through habitat creation or enhancement", PAR$river_activities, ignore.case = TRUE) &
+          grepl("Potential to improve river water quality and ecological condition", PAR$river_activities, ignore.case = TRUE) 
     ]
   
+    
+#Filter activites which include either statement or also either statement + a combination of the two.
     filtered_habitat_planting <- PAR$river_activities[
       grepl("Increase or enhance riparian planting", PAR$river_activities, ignore.case = TRUE) & 
         grepl("Enhance priority river habitat", PAR$river_activities, ignore.case = TRUE) &
-        grepl("Enhance priority river habitat - headwaters", PAR$river_activities, ignore.case = TRUE)
+        grepl("Enhance priority river habitat - headwaters", PAR$river_activities, ignore.case = TRUE) |
+        
+        grepl("Increase or enhance riparian planting", PAR$river_activities, ignore.case = TRUE) | 
+        grepl("Enhance priority river habitat", PAR$river_activities, ignore.case = TRUE) |
+        grepl("Enhance priority river habitat - headwaters", PAR$river_activities, ignore.case = TRUE) 
+        
     ]
     
     PAR_R <- PAR %>%
