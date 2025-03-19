@@ -10,9 +10,9 @@ library(leaflet)
     gdb <- st_read("/dbfs/FileStore/WSX_HGray/WessexRiskAttributedOLF.gdb", quiet = TRUE)
   
   # Import and transform Local Authorities
-    LA <- read_sf("/dbfs/mnt/base/unrestricted/source_ons_open_geography_portal/dataset_local_authority_districts_bdy_uk_bfe/format_SHP_local_authority_districts_bdy_uk_bfe/LATEST_local_authority_districts_bdy_uk_bfe/local_auth_dist_bdy_uk_bfe.shp") %>% 
-    filter(LAD24NM == "Dorset") %>% 
-      st_transform(4326)
+    LA <- read_sf("/dbfs/FileStore/WSX_HGray/Local_Nature_Recovery_Stretegy_Areas_England.gdb") %>% 
+              filter(Name == "Dorset") %>% 
+                st_transform(4326)
   
   # Import WFD waterbodies
   CAT <- read_sf("/dbfs/mnt/lab/unrestricted/harry.gray@environment-agency.gov.uk/Interim_WFD_2022.shp")# Catchment shapefiles
@@ -29,6 +29,10 @@ library(leaflet)
   
   Chalk <-  read_sf("/dbfs/FileStore/WSX_HGray/Chalk_streams_Dorset.shp") %>% 
     st_intersection(LA)
+  
+  Rivs <- read_sf("/dbfs/mnt/base/unrestricted/source_data_gov_uk/dataset_habnet_eng_rivers/format_SHP_habnet_eng_rivers/LATEST_habnet_eng_rivers/NHN_v02_RIV.shp") %>% 
+              st_transform(4326) %>% 
+                st_intersection(LA)
   
 # Create a waterbody wide score and transform
 ALERT <- gdb %>%
@@ -49,7 +53,8 @@ ALERT <- ALERT[LA,]
                              inner_join(CAT, by = "WB_NAME") %>% 
                              distinct() %>%     # We had a polygon for every linestring so make unique for each wb
                              st_as_sf() %>% 
-                             st_transform(4326)
+                             st_transform(4326) %>% 
+                             st_intersection(LA)
   
 # Transforms
   # Filter out polygons without river activities 
@@ -114,21 +119,42 @@ PAR <- PA %>%
     labs(title="Increase or enhance riparian plantin & \n Enhance priority river habitat")+
     theme_void()
   
+  
+  Chalk_H <- Chalk %>% filter(new_catego=="high certainty")
+  
 # Chalk streams and riparian planting/ riv hab potential activities 
+  ggplot() +
+    geom_sf(data = DRN, aes(col = "riv")) +
+    geom_sf(data = Chalk_H, aes(col = "chalk")) +
+    geom_sf(data = PAR_RI, aes(col = "riv_a")) +
+    geom_sf(data = LA, fill = NA, col = "black", size = 5) +
+    scale_color_manual(values = c(chalk = "purple", 
+                                  riv = "#9BAEEA",
+                                  riv_a = "green"),
+                       labels = c(chalk = "Chalk Streams",
+                                  riv = "Detailed River Network",
+                                  riv_a = "River Activities"),
+                       name = "Legend")+
+    labs(title="High Certainty Chalk Streams: \n \n Increase or enhance riparian planting & \n Enhance priority river habitat")+
+    theme_void()
+  
+  
+ # only high-certainty
+
+  
   ggplot() +
     geom_sf(data = DRN, aes(col = "riv")) +
     geom_sf(data = Chalk, aes(col = "chalk")) +
     geom_sf(data = PAR_RI, aes(col = "riv_a")) +
     geom_sf(data = LA, fill = NA, col = "black", size = 5) +
     scale_color_manual(values = c(chalk = "purple", 
-                                  riv = "steelblue",
+                                  riv = "#9BAEEA",
                                   riv_a = "green"),
                        labels = c(chalk = "Chalk Streams",
                                   riv = "Detailed River Network",
                                   riv_a = "River Activities"),
                        name = "Legend")+
-    labs(title="Increase or enhance riparian plantin & \n Enhance priority river habitat")+
+    labs(title="High & Low Certainty Chalk Streams: \n \n Increase or enhance riparian planting & \n Enhance priority river habitat")+
     theme_void()
-  
   
   
