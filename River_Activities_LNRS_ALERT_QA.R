@@ -139,6 +139,23 @@ PAR <- PA %>%
     theme_void()
   
   
+  # Chalk streams and riparian planting/ riv hab potential activities 
+  ggplot() +
+    geom_sf(data = DRN, aes(col = "riv")) +
+    geom_sf(data = Chalk, aes(col = "chalk")) +
+    geom_sf(data = PAR, aes(col = "riv_a")) +
+    geom_sf(data = LA, fill = NA, col = "black", size = 5) +
+    scale_color_manual(values = c(chalk = "purple", 
+                                  riv = "#9BAEEA",
+                                  riv_a = "green"),
+                       labels = c(chalk = "Chalk Streams",
+                                  riv = "Detailed River Network",
+                                  riv_a = "River Activities"),
+                       name = "Legend")+
+    labs(title="Chalk Streams: \n \n All River Activities")+
+    theme_void()
+  
+  
  # only high-certainty
 
   
@@ -156,5 +173,14 @@ PAR <- PA %>%
                        name = "Legend")+
     labs(title="High & Low Certainty Chalk Streams: \n \n Increase or enhance riparian planting & \n Enhance priority river habitat")+
     theme_void()
+
+  ######## EWCO + Chalk Streams + Run-off hot spots #######
   
+  NFM <- read_sf("/dbfs/FileStore/WSX_HGray/Dorset_EWCO_NFM.shp") %>% 
+            st_transform(4326) %>% 
+                st_intersection(LA)
+  
+  FZ2 <- read_sf("/dbfs/FileStore/WSX_HGray/Flood_Map_for_Planning_Rivers_and_Sea_Flood_Zone_2Polygon.shp") %>% 
+            st_transform(4326) %>% 
+                st_intersection(LA)
   
